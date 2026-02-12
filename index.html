@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة عجلة الحياة | م/ مصطفى نصر</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { 
+            --gold: #d4af37; --navy: #061021; --emerald: #064e3b; 
+            --gradient: linear-gradient(135deg, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
+        }
+
+        * { box-sizing: border-box; font-family: 'Tajawal', sans-serif; }
+        body { margin: 0; display: flex; height: 100vh; width: 100vw; background: #f0f2f5; overflow: hidden; }
+
+        /* Sidebar */
+        .sidebar { width: 280px; background: var(--navy); color: white; display: flex; flex-direction: column; border-left: 3px solid var(--gold); flex-shrink: 0; }
+        .sidebar-header { padding: 20px 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-header h2 { font-family: 'Amiri', serif; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 1.6rem; margin: 0; }
+        .nav-item { padding: 10px 15px; display: none; align-items: center; gap: 10px; opacity: 0; font-size: 0.8rem; }
+        .nav-item.unlocked { display: flex; opacity: 1; transform: translateX(0); animation: slideIn 0.5s forwards; cursor: pointer; }
+        .nav-item.active { background: rgba(255,255,255,0.05); color: var(--gold); border-right: 4px solid var(--gold); }
+        @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* Main Area */
+        .main-content { flex: 1; height: 100vh; padding: 15px; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
+        .section { display: none; width: 100%; height: 100%; }
+        .section.active { display: flex; flex-direction: column; align-items: center; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .game-card { background: white; border-radius: 25px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.06); width: 100%; max-width: 900px; height: 100%; display: flex; flex-direction: column; border: 1px solid #eee; overflow: hidden; }
+        .btn-gold { padding: 12px 40px; background: var(--gradient); border: none; border-radius: 50px; color: #1e293b; font-weight: bold; cursor: pointer; font-size: 1.1rem; margin-top: 10px; transition: 0.3s; flex-shrink: 0; }
+
+        /* Garden */
+        #gardenPlot { height: 260px; background: linear-gradient(to bottom, #f0fdf4, #dcfce7); border-radius: 20px; margin: 10px 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 10px; border: 2px solid #bbf7d0; }
+        .pot { border: 1.5px dashed #16a34a; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s; position: relative; }
+        .pot.filled { border-style: solid; background: white; }
+        .pot.selected-main { border: 4px solid var(--gold); background: #fffcf0; box-shadow: 0 0 15px var(--gold); }
+        .pot-icon { font-size: 2.8rem; }
+
+        /* Stats */
+        .chart-box { position: relative; width: 320px; height: 320px; margin: auto; }
+        #ageChartCenter { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; display: none; pointer-events: none; }
+        #ageChartCenter b { font-size: 2.2rem; color: var(--navy); display: block; }
+        #ageChartCenter span { font-size: 0.8rem; color: #64748b; }
+        .stats-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; align-items: center; flex: 1; }
+        .stat-row { display: flex; align-items: center; gap: 10px; background: #f1f5f9; padding: 7px 12px; border-radius: 12px; font-size: 0.75rem; }
+        input[type="range"] { flex: 1; accent-color: var(--gold); }
+        input[type="number"] { width: 45px; border: 1px solid var(--gold); border-radius: 5px; text-align: center; }
+
+        /* Memory */
+        .memory-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; width: 100%; max-width: 750px; flex: 1; margin: auto; perspective: 1000px; }
+        .mem-card { height: 130px; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
+        .mem-card.flipped { transform: rotateY(180deg); }
+        .mem-card.is-matched { cursor: default; }
+        .card-side { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; border-radius: 15px; font-size: 0.9rem; font-weight: bold; padding: 10px; text-align: center; border: 3px solid var(--gold); }
+        .card-front { background: var(--navy); color: var(--gold); font-size: 2.5rem; }
+        .card-back { background: white; color: var(--navy); transform: rotateY(180deg); border: 3px solid var(--navy); }
+
+        /* Scratch Card */
+        .sc-frame-container { width: 450px; height: 250px; padding: 20px; background: #fff; border: 12px double var(--gold); border-radius: 20px; position: relative; display: flex; align-items: center; justify-content: center; }
+        #scReveal { position: absolute; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.3rem; text-align: center; color: var(--navy); z-index: 1; padding: 20px; }
+        #scCan { position: absolute; z-index: 2; cursor: crosshair; border-radius: 8px; }
+
+        /* Poster Certificate */
+        #posterFinal { 
+            width: 800px; height: 560px; background: white; border: 1px solid #ddd; position: relative; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px;
+            overflow: hidden;
+        }
+        .outer-border { position: absolute; inset: 15px; border: 12px solid transparent; border-image: var(--gradient) 30; z-index: 1; }
+        .inner-border { position: absolute; inset: 30px; border: 2px solid var(--gold); z-index: 1; }
+        .recipient-name { font-family: 'Amiri', serif; font-size: 2.8rem; color: var(--navy); border-bottom: 2px double var(--gold); display: inline-block; padding: 0 40px; margin: 15px 0; z-index: 5; }
+        .medal-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; width: 95%; margin-top: 20px; z-index: 5; }
+        .medal-item { background: #fdfdfd; border: 1.5px solid var(--gold); border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.02); }
+        .medal-item b { display: block; color: var(--emerald); font-size: 0.75rem; margin-bottom: 5px; }
+        .medal-item span { font-weight: bold; color: #1e293b; font-size: 1.1rem; }
+        .final-designer { font-family: 'Amiri', serif; font-size: 1.8rem; margin-top: 20px; border-top: 1px solid #eee; width: 80%; text-align: center; padding-top: 15px; color: var(--gold); z-index: 5; font-weight: bold; }
+        
+        #covenantFrame { border: 10px double var(--gold); padding: 20px; border-radius: 20px; background: #fffaf0; flex: 1; margin: 5px 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; width: 100%; }
+        #checkList { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .check-item { display: flex; align-items: center; gap: 12px; padding: 10px 15px; background: #fff; border-radius: 12px; cursor: pointer; transition: 0.3s; font-size: 0.95rem; font-weight: 500; color: var(--navy); border: 1px solid #e2e8f0; }
+        .check-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--emerald); }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>عجلة الحياة</h2>
+            <div style="font-size: 0.7rem; color: #94a3b8; margin-top:5px;">تصميم وتنفيذ م/ مصطفى نصر</div>
+        </div>
+        <div class="nav-menu">
+            <div class="nav-item unlocked active" id="li-garden" onclick="tab('garden')">🌱 1. بستان القيم</div>
+            <div class="nav-item" id="li-stats" onclick="tab('stats')">📊 2. ميزان العمر</div>
+            <div class="nav-item" id="li-memory" onclick="tab('memory')">🧠 3. ذاكرة الود</div>
+            <div class="nav-item" id="li-scratch" onclick="tab('scratch')">🎁 4. امسح واربح</div>
+            <div class="nav-item" id="li-wheel" onclick="tab('wheel')">🎡 5. شفرة البركة</div>
+            <div class="nav-item" id="li-pulse" onclick="tab('pulse')">❤️ 6. نبضات القلب</div>
+            <div class="nav-item" id="li-covenant" onclick="tab('covenant')">📜 7. ميثاق الوفاء</div>
+            <div class="nav-item" id="li-final" onclick="tab('final')">🏆 8. وسام الاستحقاق</div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <section id="garden" class="section active">
+            <div class="game-card">
+                <h2 style="font-family:'Amiri'; text-align:center; margin:0;" id="gTitle">بستان القيم</h2>
+                <div id="gardenPlot">
+                    <div class="pot" id="pot-0"></div><div class="pot" id="pot-1"></div><div class="pot" id="pot-2"></div>
+                    <div class="pot" id="pot-3"></div><div class="pot" id="pot-4"></div><div class="pot" id="pot-5"></div>
+                </div>
+                <div id="gControls" style="display:flex; gap:10px; justify-content:center; padding:10px;">
+                    <input type="text" id="gInp" placeholder="اكتب قيمة غرسها فيك والدك..." style="padding:15px; border-radius:12px; border:2px solid var(--gold); width:350px;">
+                    <button class="btn-gold" style="margin:0" onclick="plant()">اغرس الآن</button>
+                </div>
+                <button class="btn-gold" id="gBtn" style="display:none; align-self:center;" onclick="unlock('stats')">انطلق لميزان العمر ←</button>
+            </div>
+        </section>
+
+        <section id="stats" class="section">
+            <div class="game-card">
+                <h2 style="margin:0; text-align:center;">ميزان العمر</h2>
+                <div class="stats-grid">
+                    <div class="chart-box">
+                        <canvas id="ageChart"></canvas>
+                        <div id="ageChartCenter"><span>نسبة البر</span><b id="birrValue">0%</b></div>
+                    </div>
+                    <div class="stat-input-group">
+                        <div class="stat-row">😴 نوم <input type="range" id="sR" min="0" max="12" value="0" oninput="upS('s', event)"> <input type="number" id="sN" value="0" oninput="upS('s', event)"></div>
+                        <div class="stat-row">💼 عمل <input type="range" id="wR" min="0" max="12" value="0" oninput="upS('w', event)"> <input type="number" id="wN" value="0" oninput="upS('w', event)"></div>
+                        <div class="stat-row">👨‍👩‍👧‍👦 عائلة <input type="range" id="pR" min="0" max="12" value="0" oninput="upS('p', event)"> <input type="number" id="pN" value="0" oninput="upS('p', event)"></div>
+                        <div class="stat-row">🤝 أصدقاء <input type="range" id="fR" min="0" max="10" value="0" oninput="upS('f', event)"> <input type="number" id="fN" value="0" oninput="upS('f', event)"></div>
+                        <div class="stat-row">🕌 عبادة <input type="range" id="vR" min="0" max="5" value="0" oninput="upS('v', event)"> <input type="number" id="vN" value="0" oninput="upS('v', event)"></div>
+                        <div class="stat-row">☕ راحة <input type="range" id="rR" min="0" max="5" value="0" oninput="upS('r', event)"> <input type="number" id="rN" value="0" oninput="upS('r', event)"></div>
+                    </div>
+                </div>
+                <div id="ageFeedbackBox" style="text-align:center; min-height:50px; padding:10px;"><div id="resMsg" style="font-size:1.1rem; color:#b45309; font-weight:bold;"></div></div>
+                <button class="btn-gold" id="sBtn" style="display:none; align-self:center;" onclick="unlock('memory')">تأكيد الميزان ←</button>
+            </div>
+        </section>
+
+        <section id="memory" class="section"><div class="game-card"><h2 style="text-align:center">ذاكرة الود</h2><div class="memory-grid" id="memGrid"></div><button class="btn-gold" id="memNext" style="display:none; align-self:center;" onclick="unlock('scratch')">استمر ←</button></div></section>
+        <section id="scratch" class="section"><div class="game-card" style="align-items:center"><h2>امسح واربح قلبه</h2><div class="sc-frame-container"><div id="scReveal" style="z-index:1; padding:20px; text-align:center; font-weight:bold;"></div><canvas id="scCan" width="380" height="200" style="position:absolute; z-index:2; cursor:crosshair"></canvas></div><button class="btn-gold" id="scNext" style="display:none; margin-top:20px;" onclick="unlock('wheel')">قبلت المهمة ←</button></div></section>
+        <section id="wheel" class="section"><div class="game-card"><h2 style="text-align:center">شفرة البركة</h2><div style="position:relative; width:340px; height:340px; margin:auto;"><canvas id="whCan" width="340" height="340" style="transition:4s cubic-bezier(0.1, 0, 0.1, 1);"></canvas><div style="position:absolute; top:-10px; left:50%; transform:translateX(-50%); font-size:2.5rem; color:red; z-index:10;">▼</div></div><h3 id="whRes" style="text-align:center; height:30px;"></h3><button class="btn-gold" style="align-self:center;" onclick="spinWh()">كشف الشفرة</button><button class="btn-gold" id="whNext" style="display:none; align-self:center;" onclick="unlock('pulse')">التحدي ←</button></div></section>
+        <section id="pulse" class="section"><div class="game-card" style="align-items:center; gap:10px;"><h2>سباق النبض ❤️</h2><h1 id="pClock" style="font-size:4rem; color:red;">10</h1><div style="font-size:1.5rem">النبضات: <span id="pCount" style="color:var(--gold)">0</span></div><button id="pBtn" style="width:120px; height:120px; border-radius:50%; border:none; background:#ef4444; color:white; font-size:3.5rem;" onclick="pClick()" disabled>❤️</button><button class="btn-gold" id="pStart" onclick="startP()">ابدأ</button><button class="btn-gold" id="pNext" style="display:none;" onclick="unlock('covenant')">الميثاق ←</button></div></section>
+
+        <section id="covenant" class="section">
+            <div class="game-card">
+                <div id="covenantFrame">
+                    <h2 style="font-family:'Amiri'; text-align:center; margin:0 0 10px 0; font-size:2rem; color:var(--navy);">ميثاق الوفاء للوالد</h2>
+                    <div id="checkList"></div>
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+                        <input type="text" id="fName" placeholder="اكتب اسمك الثلاثي للتوقيع" style="padding:12px; width:400px; border:2px solid var(--gold); border-radius:15px; text-align:center;">
+                        <button class="btn-gold" id="fBtn" style="display:none" onclick="finish()">توقيع الميثاق</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="final" class="section">
+            <div class="game-card" style="padding:0; align-items:center; justify-content:center; background:none;">
+                <div id="posterFinal">
+                    <div class="outer-border"></div><div class="inner-border"></div>
+                    <div style="font-size:3rem; z-index:5;">🏆</div>
+                    <h1 style="font-family:'Amiri'; font-size:3.2rem; margin:0; background:var(--gradient); -webkit-background-clip:text; -webkit-text-fill-color:transparent; z-index:5;">وسام الاستحقاق الأعلى</h1>
+                    <div class="recipient-name" id="rName"></div>
+                    <div class="medal-grid">
+                        <div class="medal-item"><b>القيمة الجوهرية</b><span id="rVal"></span></div>
+                        <div class="medal-item"><b>ميزان البر</b><span id="rTime"></span></div>
+                        <div class="medal-item"><b>شفرة البركة</b><span id="rTask"></span></div>
+                        <div class="medal-item"><b>نبضات الود</b><span id="rPulse"></span></div>
+                    </div>
+                    <div class="final-designer">تصميم م/ مصطفى نصر</div>
+                </div>
+                <button class="btn-gold" onclick="exportImg()" style="width:400px; margin-top:20px;">💾 تحميل الوسام كذكرى</button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        let state = { name:'', val:'', time:'', task:'', score:0 };
+        let potIdx = 0; let modifiedSteps = new Set();
+        const flowers = ["🌷", "🌻", "🌸", "🌼", "🌺", "🌹"];
+        const iconMap = { "صلاة": "🕌", "كرم": "🍯", "حب": "❤️", "صبر": "⏳", "صدق": "💎", "أمانة": "🗝️", "وفاء": "🤝", "نظام": "📐", "أمان": "🛡️", "عطاء": "🎁" };
+
+        function tab(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.getElementById('li-' + id).classList.add('active');
+            if(id === 'stats') initC(); if(id === 'memory') initM(); if(id === 'scratch') initS(); if(id === 'wheel') initW(); if(id === 'covenant') initCov();
+        }
+
+        function unlock(id) { document.getElementById('li-' + id).classList.add('unlocked'); tab(id); }
+
+        function plant() {
+            const v = document.getElementById('gInp').value; if(!v || potIdx >= 6) return;
+            let sym = flowers[potIdx % 6]; for(let k in iconMap) if(v.includes(k)) sym = iconMap[k];
+            const p = document.getElementById('pot-' + potIdx); p.classList.add('filled');
+            p.innerHTML = `<div class="pot-icon">${sym}</div><div style="font-size:0.7rem;font-weight:bold">${v}</div>`;
+            p.dataset.val = v; potIdx++;
+            if(potIdx === 6) {
+                document.getElementById('gTitle').innerText = "اختر القيمة الأهم"; document.getElementById('gControls').style.display = 'none';
+                document.querySelectorAll('.pot').forEach(el => el.onclick = () => {
+                    document.querySelectorAll('.pot').forEach(x => x.classList.remove('selected-main'));
+                    el.classList.add('selected-main'); state.val = el.dataset.val; document.getElementById('gBtn').style.display = 'block';
+                });
+            } document.getElementById('gInp').value = '';
+        }
+
+        let chart;
+        function initC() {
+            const ctx = document.getElementById('ageChart').getContext('2d');
+            if(chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: ['نوم','عمل','عائلة','أصدقاء','عبادة','راحة','الوالدان'], datasets: [{ data: [0,0,0,0,0,0,100], backgroundColor: ['#94a3b8','#3b82f6','#ef4444','#fbbf24','#10b981','#d4af37','#064e3b'], borderWidth: 0 }] },
+                options: { cutout: '75%', plugins: { legend: { display: false }, datalabels: { display: false } } }
+            });
+        }
+
+        function upS(t, e) {
+            const r = document.getElementById(t+'R'), n = document.getElementById(t+'N');
+            let val = + (e.target.type === 'range' ? r.value : n.value);
+            let otherSum = 0; ['s','w','p','f','v','r'].forEach(k => { if(k!==t) otherSum += +document.getElementById(k+'N').value; });
+            if(val + otherSum > 24) val = 24 - otherSum;
+            r.value = n.value = val; modifiedSteps.add(t);
+            const s=+document.getElementById('sN').value, w=+document.getElementById('wN').value, p=+document.getElementById('pN').value, f=+document.getElementById('fN').value, v=+document.getElementById('vN').value, ra=+document.getElementById('rN').value;
+            const parent = Math.max(0, 24 - (s+w+p+f+v+ra)); const pct = Math.floor((parent/24)*100);
+            chart.data.datasets[0].data = [s, w, p, f, v, ra, parent]; chart.update();
+            document.getElementById('ageChartCenter').style.display = 'block';
+            document.getElementById('birrValue').innerText = pct + "%";
+            if(modifiedSteps.size >= 6) { 
+                document.getElementById('ageFeedbackBox').style.display = 'block';
+                document.getElementById('sBtn').style.display = 'block'; 
+                state.time = pct + "%";
+                let msg = pct < 15 ? "أدرك ما بقي من عمرك، فوالداك هما بابك المفتوح للجنان." : (pct < 40 ? "خطوات طيبة.. والزيادة في برهما زيادة في بركة رزقك." : "هنيئاً لك.. أنت تعيش في رحاب الجنة المعجلة.");
+                document.getElementById('resMsg').innerText = msg;
+            }
+        }
+
+        const pairData = [{id:1,q:"ليالي سهر لمرضك",a:"عافيتك اليوم",c:"#fee2e2"},{id:2,q:"تعب العمل",a:"نجاحك وهيبتك",c:"#e0f2fe"},{id:3,q:"حزم الأب",a:"قوة شخصيتك",c:"#dcfce7"},{id:4,q:"اللقمة الحلال",a:"بركة حياتك",c:"#fef3c7"}];
+        function initM() {
+            const g = document.getElementById('memGrid'); g.innerHTML = '';
+            let cards = []; pairData.forEach(p => { cards.push({id:p.id,t:p.q,c:p.c}); cards.push({id:p.id,t:p.a,c:p.c}); });
+            cards.sort(() => Math.random() - 0.5); let flip = [];
+            cards.forEach(info => {
+                const c = document.createElement('div'); c.className = 'mem-card'; c.dataset.pair = info.id;
+                // تعديل 2: البطاقة الخلفية تأخذ اللون المخصص لها من الـ pairData وتظل ثابتة عند التطابق
+                c.innerHTML = `<div class="card-side card-front">؟</div><div class="card-side card-back" style="background-color:${info.c}; font-size:0.8rem">${info.t}</div>`;
+                c.onclick = () => { if(flip.length < 2 && !c.classList.contains('flipped')) { c.classList.add('flipped'); flip.push(c); if(flip.length === 2) { if(flip[0].dataset.pair === flip[1].dataset.pair) { setTimeout(() => { flip.forEach(f => f.classList.add('is-matched')); flip = []; if(document.querySelectorAll('.is-matched').length==8) document.getElementById('memNext').style.display='block'; }, 500); } else { setTimeout(() => { flip.forEach(f => f.classList.remove('flipped')); flip = []; }, 800); } } } }
+                g.appendChild(c);
+            });
+        }
+
+        function initS() {
+            const ts = ["ارسل رسالة: 'أنت أعظم أب'", "ما حلم والدك المنسي؟", "موقف علمك فيه الرجولة", "متى آخر مرة قبلت يده؟"];
+            document.getElementById('scReveal').innerText = ts[Math.floor(Math.random()*ts.length)];
+            const can = document.getElementById('scCan'), ctx = can.getContext('2d');
+            ctx.fillStyle = '#cbd5e1'; ctx.fillRect(0,0,380,200); ctx.globalCompositeOperation = 'destination-out';
+            let scratched = 0; can.onmousedown = () => can.onmousemove = (e) => { const r = can.getBoundingClientRect(); ctx.beginPath(); ctx.arc(e.clientX - r.left, e.clientY - r.top, 25, 0, Math.PI*2); ctx.fill(); scratched++; if(scratched > 60) document.getElementById('scNext').style.display='block'; };
+            window.onmouseup = () => can.onmousemove = null;
+        }
+
+        const whTasks = ["قبلة رأس", "صدقة جارية", "دعاء في السجود", "مكالمة شوق", "هدية بسيطة"];
+        function initW() {
+            const ctx = document.getElementById('whCan').getContext('2d'); ctx.clearRect(0,0,340,340);
+            whTasks.forEach((t, i) => { ctx.beginPath(); ctx.moveTo(170,170); ctx.arc(170,170,165, i*1.256, (i+1)*1.256); ctx.fillStyle = i%2 ? '#061021' : '#d4af37'; ctx.fill(); ctx.save(); ctx.translate(170,170); ctx.rotate(i*1.256 + 0.63); ctx.fillStyle = i%2 ? "white" : "#061021"; ctx.font = "bold 13px Tajawal"; ctx.textAlign = "right"; ctx.fillText(t, 140, 5); ctx.restore(); });
+        }
+        function spinWh() {
+            const target = Math.floor(Math.random()*whTasks.length); const stop = (5*360)+(270-(target*72)-36);
+            document.getElementById('whCan').style.transform = `rotate(${stop}deg)`;
+            setTimeout(() => { state.task = whTasks[target]; document.getElementById('whRes').innerText = "المهمة: "+state.task; document.getElementById('whNext').style.display='block'; }, 4000);
+        }
+
+        let pT = 10; function startP() {
+            document.getElementById('pStart').style.display='none'; document.getElementById('pBtn').disabled=false;
+            const itv = setInterval(() => { pT--; document.getElementById('pClock').innerText = pT; if(pT <= 0) { clearInterval(itv); document.getElementById('pBtn').disabled = true; document.getElementById('pNext').style.display='block'; } }, 1000);
+        }
+        function pClick() { state.score++; document.getElementById('pCount').innerText = state.score; }
+
+        function initCov() {
+            const list = document.getElementById('checkList'); list.innerHTML = '';
+            ["سأجعل صوتي أحنّ من رنات الهاتف.","سأقبل يده شكراً كل يوم.","سأحيي هوايته المنسية معه.","سأكون الصدقة التي تمشي ليرحمه الله.","سأخصص 'خلوة بر' يومية معه.","سأعلم أبنائي أن بر الجد سر الثبات.","سأضحكه من أعماق قلبه.","سأكون عكاز قلبه قبل جسده."].forEach(txt => {
+                const d = document.createElement('div'); d.className = 'check-item';
+                d.innerHTML = `<input type="checkbox"> <span>${txt}</span>`;
+                d.onclick = () => { const ch = d.querySelector('input'); ch.checked = !ch.checked; if(document.querySelectorAll('#checkList input:checked').length >= 6) document.getElementById('fBtn').style.display = 'block'; };
+                list.appendChild(d);
+            });
+        }
+
+        function finish() {
+            state.name = document.getElementById('fName').value; if(!state.name) return alert("يرجى كتابة الاسم");
+            document.getElementById('rName').innerText = state.name; document.getElementById('rVal').innerText = state.val;
+            document.getElementById('rTime').innerText = state.time; document.getElementById('rTask').innerText = state.task;
+            document.getElementById('rPulse').innerText = state.score; unlock('final');
+        }
+        function exportImg() { html2canvas(document.getElementById('posterFinal'), {scale: 2}).then(canvas => { const l = document.createElement('a'); l.download = `وسام_الاستحقاق.png`; l.href = canvas.toDataURL(); l.click(); }); }
+    </script>
+</body>
+</html>
